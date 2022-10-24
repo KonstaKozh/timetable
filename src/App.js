@@ -12,14 +12,41 @@ import {
     Select,
     TextField, Typography
 } from "@mui/material";
-import {useState} from "react";
-import {DEPORTATION_TIMES_A} from "./times";
+import {useEffect, useState} from "react";
+import {DEPORTATION_TIMES_A, DEPORTATION_TIMES_B} from "./times";
+import { format } from 'date-fns'
+import {PRICE, PRICE_BACK, TRAVEL_TIME} from "./consts";
+import {convertTimeToDate, convertToLocalTime, getArrivalTime, getDurationTime, isTimeAfter} from "./utils";
 
 function App() {
     const [direction, setDirection] = useState('');
     const [deportationTime, setDeportationTime] = useState('');
     const [returnTime, setReturnTime] = useState('');
     const [ticketsQuantity, setTicketsQuantity] = useState('');
+    const [isSubmitEnabled, setIsSubmitEnabled] = useState(false);
+    const [isResultShown, setisResultShown] = useState(false);
+
+
+    useEffect(() => {
+        if (direction !== 'из A в B и обратно в А') {
+            setReturnTime('')
+        }
+    },[direction])
+
+    useEffect(() => {
+        let returnTimeValid = true
+        if (direction === 'из A в B и обратно в А') {
+            returnTimeValid = !!returnTime
+        }
+        console.log(direction, deportationTime, returnTimeValid, ticketsQuantity)
+        setIsSubmitEnabled(!!direction && !!deportationTime && returnTimeValid && +ticketsQuantity > 0)
+        setisResultShown(false)
+    },[direction, deportationTime, returnTime, ticketsQuantity])
+
+
+    const minuteEndHours = format(new Date(), "HH:mm");
+    const sumPrice = (direction === 'из A в B и обратно в А') ? ticketsQuantity * PRICE_BACK : ticketsQuantity * PRICE;
+
 
     const handleChangeDirection = (event) => {
         setDirection(event.target.value);
@@ -34,14 +61,18 @@ function App() {
         setTicketsQuantity(event.target.value);
     };
 
+
     const handleSubmit = (event) => {
         event.preventDefault();
-        console.log(
-            'direction:', direction,
-            '\ndeportationTime:', deportationTime,
-            '\nreturnTime:', returnTime,
-            '\nticketsQuantity:', ticketsQuantity)
+        setisResultShown(true)
     }
+
+    const arrivalTime = getArrivalTime(deportationTime)
+    const deportationTimes = direction === 'из B в A' ? DEPORTATION_TIMES_B : DEPORTATION_TIMES_A
+    const travelDurationTime = direction === 'из A в B и обратно в А' ? getDurationTime(deportationTime, returnTime) : getDurationTime('00:00', '00:00')
+    const formattedTravelDurationTime = `${travelDurationTime.hours}:${travelDurationTime.minutes}`
+    const finalArrivalTime = direction === 'из A в B и обратно в А' ? getArrivalTime(returnTime) : getArrivalTime(deportationTime)
+    const formattedFinalArrivalTime = format(finalArrivalTime, 'HH:mm')
 
 
     return (
@@ -86,7 +117,7 @@ function App() {
                                                 onChange={handleChangeDeportationTime}
                                             >
                                                 <MenuItem value="">{'Выберите время'}</MenuItem>
-                                                {DEPORTATION_TIMES_A.map((time) => {
+                                                {deportationTimes.map((time) => {
                                                     return <MenuItem value={time} key={time}>{time}</MenuItem>
                                                 })}
                                             </Select>
@@ -105,7 +136,10 @@ function App() {
                                                 onChange={handleChangeReturnTime}
                                             >
                                                 <MenuItem value="">{'Выберите время'}</MenuItem>
-                                                {DEPORTATION_TIMES_A.map((time) => {
+                                                {DEPORTATION_TIMES_B.filter((time) => {
+                                                    const deportationTime = convertTimeToDate(time)
+                                                    return isTimeAfter(deportationTime, arrivalTime)
+                                                }).map((time) => {
                                                     return <MenuItem value={time} key={time}>{time}</MenuItem>
                                                 })}
                                             </Select>
@@ -122,7 +156,7 @@ function App() {
                                         </FormControl>
                                     </FormGroup>
 
-                                    <Button variant="contained" type="submit" sx={{m: 1}}>
+                                    <Button variant="contained" type="submit" disabled={!isSubmitEnabled} sx={{m: 1}}>
                                         Посчитать
                                     </Button>
                                 </form>
@@ -132,11 +166,13 @@ function App() {
                         <Divider orientation="vertical" flexItem />
 
                         <Grid item xs>
-                            <Box sx={{ maxWidth: 350, minWidth: 220, pr: 3, pl: 3 }}>
+                            <Box sx={{ width: 350, pr: 3, pl: 3 }}>
                                 <Typography variant='h5' gutterBottom sx={{textAlign: 'center'}}>Результат:</Typography>
-                                <Typography>{`Вы выбрали ${ticketsQuantity} билета по маршруту ${direction} стоимостью 4000р.
-                  Это путешествие займет у вас 40 минут.
-                  Теплоход отправляется в ${deportationTime}, а прибудет в 18-00.`}</Typography>
+                                {isResultShown && (
+                                    <Typography>{`Вы выбрали ${ticketsQuantity} билет(а) по маршруту ${direction} стоимостью ${sumPrice}руб.
+                  Это путешествие займет у вас ${formattedTravelDurationTime}.
+                  Теплоход отправляется в ${deportationTime}, а прибудет в ${formattedFinalArrivalTime}.`}</Typography>
+                                )}
                             </Box>
                         </Grid>
                     </Grid>
