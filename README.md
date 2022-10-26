@@ -3,6 +3,7 @@
 ### 1. Билеты на событие ###
 
 Можно добавить таблицы с билетами и типами билетов для добавления необходимых типов
+![Scheme](scheme.jpg)
 
 Orders
 id  | event_id  | event_date          | equal_price  | created
